@@ -181,9 +181,15 @@ class HabitService:
 
         return True
 
+    # -----------------------------
+    # Habit Analytics
+    # -----------------------------
 
-
-    def get_analytics(self, habit_id: UUID):
+    def get_analytics(
+        self,
+        habit_id: UUID,
+        today: date | None = None,
+    ):
         """
         Calculate analytics for a habit.
         """
@@ -200,6 +206,7 @@ class HabitService:
         current_streak = HabitAnalytics.calculate_current_streak(
             habit,
             completions,
+            today=today,
         )
 
         longest_streak = HabitAnalytics.calculate_longest_streak(
@@ -210,6 +217,7 @@ class HabitService:
         completion_rate = HabitAnalytics.calculate_completion_rate(
             habit,
             completions,
+            today=today,
         )
 
         return {

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from app.models.habit import HabitFrequency
 
@@ -190,7 +190,6 @@ def test_delete_habit(client, test_user):
     assert get_response.status_code == 404
 
 
-
 def test_create_completion(client, test_user):
     habit_response = client.post(
         "/api/v1/habits",
@@ -359,11 +358,15 @@ def test_delete_completion(client, test_user):
     assert completions_response.json() == []
 
 
-
 def test_get_habit_analytics(client, test_user):
     """
     Test the habit analytics API endpoint.
     """
+
+    today = date.today()
+
+    # Start the habit six days before today.
+    start_date = today - timedelta(days=5)
 
     # Create a habit.
     habit_response = client.post(
@@ -371,7 +374,7 @@ def test_get_habit_analytics(client, test_user):
         json={
             "user_id": str(test_user.id),
             "title": "Study Python",
-            "start_date": "2026-09-10",
+            "start_date": start_date.isoformat(),
         },
     )
 
@@ -380,15 +383,32 @@ def test_get_habit_analytics(client, test_user):
     habit_id = habit_response.json()["id"]
 
     # Add three completed days.
+    #
+    # The first three days are missed.
+    # The final three days are completed.
+    #
+    # Example:
+    #
+    # Day -5  ❌
+    # Day -4  ❌
+    # Day -3  ❌
+    # Day -2  ✅
+    # Day -1  ✅
+    # Today   ✅
+    #
+    # Therefore:
+    # current_streak = 3
+    # longest_streak = 3
+    # completion_rate = 50%
     for completion_date in [
-        "2026-09-13",
-        "2026-09-14",
-        "2026-09-15",
+        today - timedelta(days=2),
+        today - timedelta(days=1),
+        today,
     ]:
         response = client.post(
             f"/api/v1/habits/{habit_id}/completions",
             json={
-                "completion_date": completion_date,
+                "completion_date": completion_date.isoformat(),
                 "value": 60,
                 "completed": True,
             },

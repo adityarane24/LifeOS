@@ -34,6 +34,7 @@ from app.models.task import Task
 from app.models.goal import Goal
 from app.models.habit import Habit, HabitCompletion
 
+from app.models.project import Project
 
 # ---------------------------------------------------------
 # TEST DATABASE URL
@@ -152,7 +153,7 @@ def client():
         # Therefore they must be deleted first.
         db.query(HabitCompletion).delete()
 
-        # Habits depend on users.
+        # Habits depend on users.a
         db.query(Habit).delete()
 
         # Goals depend on users.
@@ -160,6 +161,9 @@ def client():
 
         # Tasks depend on users.
         db.query(Task).delete()
+
+        #Project depend on users.
+        db.query(Project).delete()
 
         # Users can now be safely deleted.
         db.query(User).delete()
