@@ -1,0 +1,80 @@
+# Docker Compose lets us define and run multiple
+# containers as one application environment.
+
+services:
+
+  # ---------------------------------------------------
+  # PostgreSQL DATABASE
+  # ---------------------------------------------------
+  postgres:
+
+    # Official PostgreSQL image.
+    # The image contains PostgreSQL and everything
+    # required to run the database server.
+    image: postgres:17-alpine
+
+    # Give our container a predictable name.
+    container_name: lifeos-postgres
+
+    # Environment variables configure PostgreSQL
+    # when the container is created.
+    environment:
+
+      # Name of the PostgreSQL database.
+      POSTGRES_DB: lifeos
+
+      # Development username.
+    
+      POSTGRES_USER: lifeos
+
+      # Development password.
+      #
+      # IMPORTANT:
+      # This is only for our local development environment.
+      # We will move secrets into environment variables
+      # before production deployment.
+      POSTGRES_PASSWORD: lifeos_dev_password
+
+    # Map the PostgreSQL port from the container
+    # to your Mac.
+    #
+    # Mac:       5432
+    # Container: 5432
+    ports:
+      - "5432:5432"
+
+    # Store PostgreSQL data in a Docker volume.
+    #
+    # This prevents database data from disappearing
+    # when the container is recreated.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # Give Docker a simple way to check whether
+    # PostgreSQL is ready to accept connections.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U lifeos -d lifeos"
+        ]
+
+      # Check every 10 seconds.
+      interval: 10s
+
+      # Give PostgreSQL 5 seconds to respond.
+      timeout: 5s
+
+      # Try 5 times before declaring it unhealthy.
+      retries: 5
+
+
+# ---------------------------------------------------
+# DOCKER VOLUMES
+# ---------------------------------------------------
+#
+# Docker manages this volume for us.
+#
+# PostgreSQL stores its persistent data here.
+volumes:
+  postgres_data:
