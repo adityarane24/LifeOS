@@ -156,19 +156,18 @@ class HabitService:
         return habit
 
     def delete_habit(self, habit_id: UUID) -> bool:
-        """
-        Delete an existing habit.
-        """
-
         habit = self.repository.get_by_id(habit_id)
-
+    
         if habit is None:
             return False
-
+    
+        self.db.query(HabitCompletion).filter(
+            HabitCompletion.habit_id == habit_id
+        ).delete(synchronize_session=False)
+    
         self.repository.delete(habit)
-
         self.db.commit()
-
+    
         return True
 
     # -----------------------------

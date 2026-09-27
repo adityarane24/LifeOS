@@ -1,6 +1,7 @@
 # Import the FastAPI class from the fastapi package.
 # FastAPI is the framework we are using to build our backend API.
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.user import router as user_router
 from app.api.routes.task import router as task_router
@@ -20,6 +21,17 @@ app = FastAPI(
     version="0.1.0",
     description="Personal intelligence and decision system",
 
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
