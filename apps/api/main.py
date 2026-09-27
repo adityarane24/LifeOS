@@ -10,6 +10,7 @@ from app.api.routes.habit import router as habit_router
 
 from app.api.routes.project import router as project_router
 from app.api.routes.activity import router as activity_router
+from app.api.routes.analytics import router as analytics_router
 
 # Create an instance of the FastAPI application.
 #
@@ -69,6 +70,11 @@ app.include_router(
 
 app.include_router(
     activity_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    analytics_router,
     prefix="/api/v1",
 )
 
