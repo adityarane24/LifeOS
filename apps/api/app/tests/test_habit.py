@@ -2,6 +2,13 @@ from datetime import date, timedelta
 
 from app.models.habit import HabitFrequency
 
+from app.models.activity_event import (
+    ActivityEntityType,
+    ActivityEvent,
+    ActivityEventType,
+)
+from app.tests.conftest import TestSessionLocal
+
 
 def test_create_habit(client, test_user):
     response = client.post(
@@ -429,3 +436,289 @@ def test_get_habit_analytics(client, test_user):
     assert data["current_streak"] == 3
     assert data["longest_streak"] == 3
     assert data["completion_rate"] == 50.0
+
+
+
+def test_create_habit_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that creating a habit creates
+    a habit_created activity event.
+    """
+
+    response = client.post(
+        "/api/v1/habits/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Morning Exercise",
+            "description": "Exercise every morning",
+            "frequency": "daily",
+            "target": 1,
+            "unit": "times",
+        },
+    )
+
+    assert response.status_code == 201
+
+    habit = response.json()
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == habit["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.habit_created,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.habit
+
+    finally:
+        db.close()
+
+
+def test_update_habit_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that updating a habit creates
+    a habit_updated activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/habits/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Read Book",
+            "description": "Read every day",
+            "frequency": "daily",
+            "target": 1,
+            "unit": "times",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    habit = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/habits/{habit['id']}",
+        json={
+            "title": "Read Technical Book",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == habit["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.habit_updated,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.habit
+        assert event.event_metadata["updated_fields"] == [
+            "title"
+        ]
+
+    finally:
+        db.close()
+
+
+def test_complete_habit_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that completing a habit creates
+    a habit_completed activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/habits/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Drink Water",
+            "description": "Drink enough water",
+            "frequency": "daily",
+            "target": 1,
+            "unit": "times",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    habit = create_response.json()
+
+    completion_response = client.post(
+        f"/api/v1/habits/{habit['id']}/completions",
+        json={
+            "completion_date": "2026-09-27",
+            "value": 1,
+            "completed": True,
+        },
+    )
+
+    assert completion_response.status_code == 201
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == habit["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.habit_completed,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.habit
+        assert event.event_metadata["completion_date"] == (
+            "2026-09-27"
+        )
+        assert event.event_metadata["value"] == 1
+        assert event.event_metadata["completed"] is True
+
+    finally:
+        db.close()
+
+
+def test_missed_habit_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that recording an incomplete habit creates
+    a habit_missed activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/habits/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Meditation",
+            "description": "Meditate every morning",
+            "frequency": "daily",
+            "target": 1,
+            "unit": "times",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    habit = create_response.json()
+
+    completion_response = client.post(
+        f"/api/v1/habits/{habit['id']}/completions",
+        json={
+            "completion_date": "2026-09-27",
+            "value": 0,
+            "completed": False,
+        },
+    )
+
+    assert completion_response.status_code == 201
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == habit["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.habit_missed,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.habit
+        assert event.event_metadata["completion_date"] == (
+            "2026-09-27"
+        )
+        assert event.event_metadata["completed"] is False
+
+    finally:
+        db.close()
+
+
+def test_deactivate_habit_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that deactivating a habit creates
+    a habit_deactivated activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/habits/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Old Habit",
+            "description": "Habit to deactivate",
+            "frequency": "daily",
+            "target": 1,
+            "unit": "times",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    habit = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/habits/{habit['id']}",
+        json={
+            "is_active": False,
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["is_active"] is False
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == habit["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.habit_deactivated,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.habit
+        assert event.event_metadata["old_is_active"] is True
+        assert event.event_metadata["new_is_active"] is False
+
+    finally:
+        db.close()
