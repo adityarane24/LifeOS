@@ -1,3 +1,10 @@
+from app.models.activity_event import (
+    ActivityEntityType,
+    ActivityEvent,
+    ActivityEventType,
+)
+from app.tests.conftest import TestSessionLocal
+
 def test_create_project(client, test_user):
     response = client.post(
         "/api/v1/projects",
@@ -174,3 +181,216 @@ def test_delete_nonexistent_project(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Project not found"
+
+
+
+def test_create_project_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that creating a project creates
+    a project_created activity event.
+    """
+
+    response = client.post(
+        "/api/v1/projects/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "LifeOS Project",
+            "description": "Build LifeOS",
+            "priority": "high",
+        },
+    )
+
+    assert response.status_code == 201
+
+    project = response.json()
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == project["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.project_created,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.project
+
+    finally:
+        db.close()
+
+
+def test_update_project_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that updating a project creates
+    a project_updated activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/projects/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Original Project",
+            "description": "Original description",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    project = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/projects/{project['id']}",
+        json={
+            "title": "Updated Project",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == project["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.project_updated,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.project
+        assert event.event_metadata["updated_fields"] == [
+            "title"
+        ]
+
+    finally:
+        db.close()
+
+
+def test_complete_project_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that completing a project creates
+    a project_completed activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/projects/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Complete Project",
+            "description": "Project for completion test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    project = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/projects/{project['id']}",
+        json={
+            "status": "completed",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "completed"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == project["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.project_completed,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.project
+        assert event.event_metadata["old_status"] == "planned"
+        assert event.event_metadata["new_status"] == "completed"
+
+    finally:
+        db.close()
+
+
+def test_archive_project_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that archiving a project creates
+    a project_archived activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/projects/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Archive Project",
+            "description": "Project for archive test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    project = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/projects/{project['id']}",
+        json={
+            "status": "archived",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "archived"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == project["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.project_archived,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.project
+        assert event.event_metadata["old_status"] == "planned"
+        assert event.event_metadata["new_status"] == "archived"
+
+    finally:
+        db.close()
