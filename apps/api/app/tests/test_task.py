@@ -8,6 +8,13 @@
 
 from uuid import uuid4
 
+from app.models.activity_event import (
+    ActivityEntityType,
+    ActivityEvent,
+    ActivityEventType,
+)
+from app.tests.conftest import TestSessionLocal
+
 
 # ---------------------------------------------------------
 # HELPER — CREATE TEST USER
@@ -338,3 +345,254 @@ def test_update_nonexistent_task(client):
     )
 
     assert response.status_code == 404
+
+
+
+def test_update_task_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that updating a task creates a
+    task_updated activity event.
+    """
+
+    # Create a task first.
+    create_response = client.post(
+        "/api/v1/tasks/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Original Task",
+            "description": "Original description",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    task = create_response.json()
+
+    # Update the task.
+    update_response = client.patch(
+        f"/api/v1/tasks/{task['id']}",
+        json={
+            "title": "Updated Task",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    updated_task = update_response.json()
+
+    # Verify that the task was actually updated.
+    assert updated_task["title"] == "Updated Task"
+
+    # Check the activity event directly from the test database.
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == task["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.task_updated,
+            )
+            .first()
+        )
+
+        # An event must exist.
+        assert event is not None
+
+        # Verify that the event points to the correct task.
+        assert event.entity_type == ActivityEntityType.task
+
+        # Verify which field was updated.
+        assert event.event_metadata["updated_fields"] == [
+            "title"
+        ]
+
+    finally:
+        db.close()
+
+
+
+def test_complete_task_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that completing a task creates
+    a task_completed activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/tasks/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Complete Me",
+            "description": "Task for completion test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    task = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/tasks/{task['id']}",
+        json={
+            "status": "completed",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "completed"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == task["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.task_completed,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.task
+        assert event.event_metadata["old_status"] == "pending"
+        assert event.event_metadata["new_status"] == "completed"
+
+    finally:
+        db.close()
+
+
+def test_cancel_task_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that cancelling a task creates
+    a task_cancelled activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/tasks/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Cancel Me",
+            "description": "Task for cancellation test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    task = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/tasks/{task['id']}",
+        json={
+            "status": "cancelled",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "cancelled"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == task["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.task_cancelled,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.task
+        assert event.event_metadata["old_status"] == "pending"
+        assert event.event_metadata["new_status"] == "cancelled"
+
+    finally:
+        db.close()
+
+
+
+def test_reopen_task_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that reopening a completed task creates
+    a task_reopened activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/tasks/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Reopen Me",
+            "description": "Task for reopen test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    task = create_response.json()
+
+    # First complete the task.
+    complete_response = client.patch(
+        f"/api/v1/tasks/{task['id']}",
+        json={
+            "status": "completed",
+        },
+    )
+
+    assert complete_response.status_code == 200
+
+    # Now reopen the task.
+    reopen_response = client.patch(
+        f"/api/v1/tasks/{task['id']}",
+        json={
+            "status": "pending",
+        },
+    )
+
+    assert reopen_response.status_code == 200
+    assert reopen_response.json()["status"] == "pending"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == task["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.task_reopened,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.task
+        assert event.event_metadata["old_status"] == "completed"
+        assert event.event_metadata["new_status"] == "pending"
+
+    finally:
+        db.close()

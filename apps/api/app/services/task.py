@@ -14,8 +14,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.activity_event import (ActivityEntityType,ActivityEventType,)
-from app.models.task import Task
+from app.models.activity_event import (
+    ActivityEntityType,
+    ActivityEventType,
+)
+from app.models.task import Task, TaskStatus
 from app.repositories.task import TaskRepository
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.activity_event import ActivityEventService
@@ -60,7 +63,8 @@ class TaskService:
         self.repository.create(task)
 
         # Create an activity event for the new task.
-        # This records the user's action in the LifeOS activity history.
+        # This records the user's action in the LifeOS
+        # activity history.
         self.activity_event_service.create_event(
             user_id=task.user_id,
             event_type=ActivityEventType.task_created,
@@ -71,14 +75,14 @@ class TaskService:
                 "priority": task.priority.value,
             },
         )
-        
+
         # Commit both the task and its activity event
         # in the same database transaction.
         self.db.commit()
-        
+
         # Reload the task with the latest database values.
         self.db.refresh(task)
-        
+
         return task
 
     # -----------------------------------------------------
@@ -127,7 +131,6 @@ class TaskService:
 
         return True
 
-
     # -----------------------------------------------------
     # UPDATE TASK
     # -----------------------------------------------------
@@ -142,6 +145,9 @@ class TaskService:
 
         Only the fields supplied by the client are changed.
 
+        Special activity events are created when the task
+        moves between important lifecycle states.
+
         Returns:
             Updated Task if found.
             None if the task does not exist.
@@ -153,6 +159,12 @@ class TaskService:
         # If the task doesn't exist, return None.
         if task is None:
             return None
+
+        # Save the old status before applying any updates.
+        #
+        # We need this because activity events depend on
+        # the transition from the old status to the new status.
+        old_status = task.status
 
         # Convert the Pydantic model into a dictionary
         # containing only fields that were actually supplied.
@@ -167,7 +179,61 @@ class TaskService:
         # Send the changes to the database session.
         self.repository.update(task)
 
-        # Permanently save the changes.
+        # -------------------------------------------------
+        # ACTIVITY EVENT
+        # -------------------------------------------------
+        #
+        # Decide which activity event should be created.
+        #
+        # Normal changes such as title/priority changes
+        # create task_updated.
+        #
+        # Important lifecycle changes get their own
+        # specific event.
+
+        event_type = ActivityEventType.task_updated
+
+        # Check whether the task status actually changed.
+        if "status" in update_data:
+
+            new_status = task.status
+
+            # Task was completed.
+            if new_status == TaskStatus.completed:
+                event_type = ActivityEventType.task_completed
+
+            # Task was cancelled.
+            elif new_status == TaskStatus.cancelled:
+                event_type = ActivityEventType.task_cancelled
+
+            # A completed or cancelled task was reopened.
+            elif (
+                old_status in {
+                    TaskStatus.completed,
+                    TaskStatus.cancelled,
+                }
+                and new_status in {
+                    TaskStatus.pending,
+                    TaskStatus.in_progress,
+                }
+            ):
+                event_type = ActivityEventType.task_reopened
+
+        # Create the activity event.
+        self.activity_event_service.create_event(
+            user_id=task.user_id,
+            event_type=event_type,
+            entity_type=ActivityEntityType.task,
+            entity_id=task.id,
+            event_metadata={
+                "updated_fields": list(update_data.keys()),
+                "old_status": old_status.value,
+                "new_status": task.status.value,
+            },
+        )
+
+        # Commit both the task update and the activity event
+        # in the same database transaction.
         self.db.commit()
 
         # Reload the task so we return the latest database
@@ -175,4 +241,3 @@ class TaskService:
         self.db.refresh(task)
 
         return task
-    
