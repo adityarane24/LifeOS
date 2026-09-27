@@ -12,6 +12,10 @@ from app.api.routes.project import router as project_router
 from app.api.routes.activity import router as activity_router
 from app.api.routes.analytics import router as analytics_router
 
+from app.api.routes import context
+
+from app.api.routes import intelligence
+
 # Create an instance of the FastAPI application.
 #
 # Think of "app" as our actual LifeOS backend application.
@@ -77,6 +81,19 @@ app.include_router(
     analytics_router,
     prefix="/api/v1",
 )
+
+
+app.include_router(
+    context.router, 
+    prefix="/api/v1")
+
+
+app.include_router(
+    intelligence.router,
+    prefix="/api/v1",
+)
+
+
 
 # ---------------------------------------------------------
 # ROOT ENDPOINT
