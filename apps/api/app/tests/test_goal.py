@@ -7,6 +7,13 @@
 
 from uuid import uuid4
 
+from app.models.activity_event import (
+    ActivityEntityType,
+    ActivityEvent,
+    ActivityEventType,
+)
+from app.tests.conftest import TestSessionLocal
+
 
 def create_test_user(client):
     """
@@ -304,3 +311,272 @@ def test_delete_nonexistent_goal(client):
     )
 
     assert response.status_code == 404
+
+
+
+def test_create_goal_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that creating a goal creates
+    a goal_created activity event.
+    """
+
+    response = client.post(
+        "/api/v1/goals/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Learn Python",
+            "description": "Complete Python learning path",
+            "priority": "high",
+        },
+    )
+
+    assert response.status_code == 201
+
+    goal = response.json()
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == goal["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.goal_created,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.goal
+
+    finally:
+        db.close()
+
+
+def test_update_goal_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that updating a goal creates
+    a goal_updated activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/goals/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Original Goal",
+            "description": "Original description",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    goal = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/goals/{goal['id']}",
+        json={
+            "title": "Updated Goal",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == goal["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.goal_updated,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.goal
+        assert event.event_metadata["updated_fields"] == [
+            "title"
+        ]
+
+    finally:
+        db.close()
+
+
+def test_update_goal_progress_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that changing goal progress creates
+    a goal_progress_updated activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/goals/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Progress Goal",
+            "description": "Track progress",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    goal = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/goals/{goal['id']}",
+        json={
+            "progress": 50,
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["progress"] == 50
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == goal["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.goal_progress_updated,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.goal
+        assert event.event_metadata["old_progress"] == 0
+        assert event.event_metadata["new_progress"] == 50
+
+    finally:
+        db.close()
+
+
+def test_complete_goal_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that completing a goal creates
+    a goal_completed activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/goals/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Complete Goal",
+            "description": "Goal for completion test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    goal = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/goals/{goal['id']}",
+        json={
+            "status": "completed",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "completed"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == goal["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.goal_completed,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.goal
+        assert event.event_metadata["old_status"] == "pending"
+        assert event.event_metadata["new_status"] == "completed"
+
+    finally:
+        db.close()
+
+
+def test_cancel_goal_creates_activity_event(
+    client,
+    test_user,
+):
+    """
+    Verify that cancelling a goal creates
+    a goal_cancelled activity event.
+    """
+
+    create_response = client.post(
+        "/api/v1/goals/",
+        json={
+            "user_id": str(test_user.id),
+            "title": "Cancel Goal",
+            "description": "Goal for cancellation test",
+            "priority": "medium",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    goal = create_response.json()
+
+    update_response = client.patch(
+        f"/api/v1/goals/{goal['id']}",
+        json={
+            "status": "cancelled",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "cancelled"
+
+    db = TestSessionLocal()
+
+    try:
+        event = (
+            db.query(ActivityEvent)
+            .filter(
+                ActivityEvent.user_id == test_user.id,
+                ActivityEvent.entity_id == goal["id"],
+                ActivityEvent.event_type
+                == ActivityEventType.goal_cancelled,
+            )
+            .first()
+        )
+
+        assert event is not None
+        assert event.entity_type == ActivityEntityType.goal
+        assert event.event_metadata["old_status"] == "pending"
+        assert event.event_metadata["new_status"] == "cancelled"
+
+    finally:
+        db.close()
