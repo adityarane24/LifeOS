@@ -14,9 +14,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.models.activity_event import (ActivityEntityType,ActivityEventType,)
 from app.models.task import Task
 from app.repositories.task import TaskRepository
 from app.schemas.task import TaskCreate, TaskUpdate
+from app.services.activity_event import ActivityEventService
 
 
 class TaskService:
@@ -32,6 +34,7 @@ class TaskService:
 
         self.db = db
         self.repository = TaskRepository(db)
+        self.activity_event_service = ActivityEventService(db)
 
     # -----------------------------------------------------
     # CREATE TASK
@@ -56,9 +59,26 @@ class TaskService:
 
         self.repository.create(task)
 
+        # Create an activity event for the new task.
+        # This records the user's action in the LifeOS activity history.
+        self.activity_event_service.create_event(
+            user_id=task.user_id,
+            event_type=ActivityEventType.task_created,
+            entity_type=ActivityEntityType.task,
+            entity_id=task.id,
+            event_metadata={
+                "title": task.title,
+                "priority": task.priority.value,
+            },
+        )
+        
+        # Commit both the task and its activity event
+        # in the same database transaction.
         self.db.commit()
+        
+        # Reload the task with the latest database values.
         self.db.refresh(task)
-
+        
         return task
 
     # -----------------------------------------------------

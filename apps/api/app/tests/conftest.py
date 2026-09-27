@@ -33,8 +33,8 @@ from app.models.user import User
 from app.models.task import Task
 from app.models.goal import Goal
 from app.models.habit import Habit, HabitCompletion
-
 from app.models.project import Project
+from app.models.activity_event import ActivityEvent
 
 # ---------------------------------------------------------
 # TEST DATABASE URL
@@ -152,23 +152,12 @@ def client():
         # Habit completions depend on habits.
         # Therefore they must be deleted first.
         db.query(HabitCompletion).delete()
-
-        # Habits depend on users.a
         db.query(Habit).delete()
-
-        # Goals depend on users.
         db.query(Goal).delete()
-
-        # Tasks depend on users.
         db.query(Task).delete()
-
-        #Project depend on users.
         db.query(Project).delete()
-
-        # Users can now be safely deleted.
+        db.query(ActivityEvent).delete()
         db.query(User).delete()
-
-        # Permanently apply the deletions.
         db.commit()
 
     finally:
@@ -197,32 +186,65 @@ def client():
 @pytest.fixture
 def test_user():
     """
-    Create a temporary user in the test database.
+    Create a temporary user in the test database
+    and clean up everything belonging to that user
+    after the test finishes.
     """
 
-    # Create a database session.
     db = TestSessionLocal()
 
+    user = User(
+        email="habit_test_runner@example.com",
+        name="Habit Tester",
+    )
+
     try:
-
-        # Create a test user.
-        user = User(
-            email="habit_test_runner@example.com",
-            name="Habit Tester",
-        )
-
-        # Add the user to the session.
         db.add(user)
-
-        # Save the user.
         db.commit()
-
-        # Load generated fields such as the UUID.
         db.refresh(user)
 
-        # Return the actual User object.
-        return user
+        yield user
 
     finally:
-        # Close the database session.
+        # Delete habit completions first.
+        db.query(HabitCompletion).filter(
+            HabitCompletion.habit_id.in_(
+                db.query(Habit.id).filter(
+                    Habit.user_id == user.id
+                )
+            )
+        ).delete(synchronize_session=False)
+
+        # Delete habits created by this test user.
+        db.query(Habit).filter(
+            Habit.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        # Delete activity events created by this test user.
+        db.query(ActivityEvent).filter(
+            ActivityEvent.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        # Delete goals created by this test user.
+        db.query(Goal).filter(
+            Goal.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        # Delete tasks created by this test user.
+        db.query(Task).filter(
+            Task.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        # Delete projects created by this test user.
+        db.query(Project).filter(
+            Project.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        # Delete the user last because all dependent records
+        # have now been removed.
+        db.query(User).filter(
+            User.id == user.id
+        ).delete(synchronize_session=False)
+
+        db.commit()
         db.close()

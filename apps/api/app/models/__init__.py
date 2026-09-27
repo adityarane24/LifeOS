@@ -8,4 +8,7 @@ from app.models.goal import Goal
 from app.models.habit import Habit, HabitCompletion
 
 from app.models.project import Project
+
+from app.models.activity_event import ActivityEvent
+
 __all__ = ["User"]
