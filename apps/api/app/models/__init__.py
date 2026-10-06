@@ -11,4 +11,6 @@ from app.models.project import Project
 
 from app.models.activity_event import ActivityEvent
 
+from app.models.recommendation import Recommendation
+
 __all__ = ["User"]
