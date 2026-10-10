@@ -14,6 +14,8 @@ from app.api.routes.analytics import router as analytics_router
 
 from app.api.routes import context
 
+from app.api.routes import recommendation
+
 from app.api.routes import intelligence
 
 # Create an instance of the FastAPI application.
@@ -93,7 +95,10 @@ app.include_router(
     prefix="/api/v1",
 )
 
-
+app.include_router(
+    recommendation.router,
+    prefix="/api/v1",
+)
 
 # ---------------------------------------------------------
 # ROOT ENDPOINT

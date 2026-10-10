@@ -181,7 +181,7 @@ class ContextService:
             "entity_type": event.entity_type.value,
             "entity_id": event.entity_id,
             "occurred_at": event.occurred_at,
-            "metadata": event.metadata,
+            "metadata": event.event_metadata,
             "created_at": event.created_at,
         }
         for event in recent_activity

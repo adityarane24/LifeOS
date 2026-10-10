@@ -1,13 +1,27 @@
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy.orm import Session
+
+from app.repositories.recommendation import RecommendationRepository
 
 
 class RecommendationService:
     """
-    Converts prioritized context signals into actionable recommendations.
+    Handles recommendation generation and lifecycle operations.
 
-    This service does not modify user data and does not use AI.
-    Every recommendation is generated from an explicit signal rule.
+    Recommendation generation is deterministic and does not use AI.
+
+    Lifecycle operations such as retrieving recommendations and updating
+    their status use the recommendation repository.
     """
+
+    def __init__(self, db: Session | None = None):
+        self.repository = (
+            RecommendationRepository(db)
+            if db is not None
+            else None
+        )
 
     def generate(
         self,
@@ -94,3 +108,55 @@ class RecommendationService:
                 )
 
         return recommendations
+
+    def get_user_recommendations(
+        self,
+        user_id: UUID,
+    ):
+        """
+        Return all recommendations belonging to a user.
+        """
+
+        if self.repository is None:
+            raise RuntimeError(
+                "RecommendationService requires a database session "
+                "for lifecycle operations."
+            )
+
+        return self.repository.get_by_user(user_id)
+
+    def get_recommendation(
+        self,
+        recommendation_id: UUID,
+    ):
+        """
+        Return a single recommendation.
+        """
+
+        if self.repository is None:
+            raise RuntimeError(
+                "RecommendationService requires a database session "
+                "for lifecycle operations."
+            )
+
+        return self.repository.get_by_id(recommendation_id)
+
+    def update_status(
+        self,
+        recommendation_id: UUID,
+        status: str,
+    ):
+        """
+        Update the lifecycle status of a recommendation.
+        """
+
+        if self.repository is None:
+            raise RuntimeError(
+                "RecommendationService requires a database session "
+                "for lifecycle operations."
+            )
+
+        return self.repository.update_status(
+            recommendation_id,
+            status,
+        )
