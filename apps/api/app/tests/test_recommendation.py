@@ -74,3 +74,48 @@ def test_generate_empty_recommendations():
     result = service.generate([])
 
     assert result == []
+
+
+
+def test_task_pressure_recommendation_uses_pending_task_count():
+    service = RecommendationService()
+
+    signals = [
+        {
+            "type": "task_pressure",
+            "severity": "high",
+            "message": "You have a high number of pending tasks.",
+            "source": "tasks",
+            "evidence": {
+                "pending_tasks": 10,
+            },
+            "confidence": 1.0,
+            "priority_score": 3.0,
+        }
+    ]
+    result = service.generate(signals)
+    assert len(result) == 1
+    assert "10" in result[0]["message"]
+
+
+def test_task_pressure_recommendation_handles_missing_evidence():
+    service = RecommendationService()
+
+    signals = [
+        {
+            "type": "task_pressure",
+            "severity": "high",
+            "message": "You have a high number of pending tasks.",
+            "source": "tasks",
+            "confidence": 1.0,
+            "priority_score": 3.0,
+        }
+    ]
+
+    result = service.generate(signals)
+
+    assert len(result) == 1
+    assert result[0]["message"] == (
+        "Review your pending tasks and focus on the "
+        "highest-priority work before adding new tasks."
+    )

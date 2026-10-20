@@ -33,14 +33,26 @@ class RecommendationService:
             signal_type = signal.get("type")
 
             if signal_type == "task_pressure":
+                evidence = signal.get("evidence", {})
+                pending_tasks = evidence.get("pending_tasks")
+
+                if pending_tasks is not None:
+                    message = (
+                        f"You have {pending_tasks} pending tasks. "
+                        "Review them and focus on the highest-priority "
+                        "work before adding new tasks."
+                    )
+                else:
+                    message = (
+                        "Review your pending tasks and focus on the "
+                        "highest-priority work before adding new tasks."
+                    )
+
                 recommendations.append(
                     {
                         "type": "task_management",
                         "title": "Reduce your pending task load",
-                        "message": (
-                            "Review your pending tasks and focus on the "
-                            "highest-priority work before adding new tasks."
-                        ),
+                        "message": message,
                         "reason": signal.get("message"),
                         "source_signal": signal_type,
                         "priority": signal.get("priority_score", 0),
