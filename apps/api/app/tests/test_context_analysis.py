@@ -339,3 +339,115 @@ def test_context_analysis_ignores_habit_consistency_without_active_habits():
 
     assert result["signal_count"] == 0
     assert result["signals"] == []
+
+
+def test_context_analysis_detects_low_task_completion():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 0,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 10,
+                "completion_rate": 40,
+            },
+            "habits": {
+                "consistency_rate": 0,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 1
+
+    signal = result["signals"][0]
+
+    assert signal["type"] == "task_completion"
+    assert signal["severity"] == "medium"
+    assert signal["evidence"]["created_tasks"] == 10
+    assert signal["evidence"]["completion_rate"] == 40
+    assert signal["confidence"] == 1.0
+
+
+def test_context_analysis_ignores_task_completion_at_50_percent():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 0,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 10,
+                "completion_rate": 50,
+            },
+            "habits": {
+                "consistency_rate": 0,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 0
+    assert result["signals"] == []
+
+
+def test_context_analysis_ignores_task_completion_without_created_tasks():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 0,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 0,
+                "completion_rate": 20,
+            },
+            "habits": {
+                "consistency_rate": 0,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 0
+    assert result["signals"] == []
