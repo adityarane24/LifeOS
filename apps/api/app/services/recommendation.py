@@ -75,19 +75,37 @@ class RecommendationService:
                 )
 
             elif signal_type == "low_goal_progress":
+                evidence = signal.get("evidence", {})
+                active_goals = evidence.get("active_goals")
+                average_progress = evidence.get("average_progress")
+
+                if (
+                    active_goals is not None
+                    and average_progress is not None
+                ):
+                    message = (
+                        f"You have {active_goals} active goals with "
+                        f"an average progress of {average_progress}%. "
+                        "Choose one goal and define a small next action "
+                        "to move it forward."
+                    )
+                else:
+                    message = (
+                        "Choose one active goal and define a small "
+                        "next action to move it forward."
+                    )
+
                 recommendations.append(
                     {
                         "type": "goal_management",
                         "title": "Review your goal progress",
-                        "message": (
-                            "Choose one active goal and define a small "
-                            "next action to move it forward."
-                        ),
+                        "message": message,
                         "reason": signal.get("message"),
                         "source_signal": signal_type,
                         "priority": signal.get("priority_score", 0),
                     }
                 )
+
 
             elif signal_type == "habit_consistency":
                 recommendations.append(

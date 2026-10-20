@@ -119,3 +119,28 @@ def test_task_pressure_recommendation_handles_missing_evidence():
         "Review your pending tasks and focus on the "
         "highest-priority work before adding new tasks."
     )
+
+
+def test_goal_recommendation_uses_progress_evidence():
+    service = RecommendationService()
+
+    signals = [
+        {
+            "type": "low_goal_progress",
+            "severity": "medium",
+            "message": "Your active goals have relatively low progress.",
+            "source": "goals",
+            "evidence": {
+                "active_goals": 2,
+                "average_progress": 20,
+            },
+            "confidence": 1.0,
+            "priority_score": 2.0,
+        }
+    ]
+
+    result = service.generate(signals)
+
+    assert len(result) == 1
+    assert "2" in result[0]["message"]
+    assert "20" in result[0]["message"]
