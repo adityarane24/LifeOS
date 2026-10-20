@@ -63,6 +63,23 @@ class RecommendationRepository:
             .first()
         )
 
+
+    def get_latest_by_signal(
+        self,
+        user_id: UUID,
+        source_signal: str,
+    ) -> Recommendation | None:
+        return (
+            self.db.query(Recommendation)
+            .filter(
+                Recommendation.user_id == user_id,
+                Recommendation.source_signal == source_signal,
+            )
+            .order_by(Recommendation.created_at.desc())
+            .first()
+        )
+
+    
     def get_by_user(
         self,
         user_id: UUID,
