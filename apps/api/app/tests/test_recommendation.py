@@ -144,3 +144,27 @@ def test_goal_recommendation_uses_progress_evidence():
     assert len(result) == 1
     assert "2" in result[0]["message"]
     assert "20" in result[0]["message"]
+
+def test_habit_recommendation_uses_consistency_evidence():
+    service = RecommendationService()
+
+    signals = [
+        {
+            "type": "habit_consistency",
+            "severity": "medium",
+            "message": "Your habit consistency is low.",
+            "source": "habits",
+            "evidence": {
+                "active_habits": 3,
+                "consistency_rate": 40,
+            },
+            "confidence": 1.0,
+            "priority_score": 2.0,
+        }
+    ]
+
+    result = service.generate(signals)
+
+    assert len(result) == 1
+    assert "3" in result[0]["message"]
+    assert "40" in result[0]["message"]

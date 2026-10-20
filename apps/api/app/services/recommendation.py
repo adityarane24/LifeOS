@@ -106,21 +106,38 @@ class RecommendationService:
                     }
                 )
 
-
             elif signal_type == "habit_consistency":
+                evidence = signal.get("evidence", {})
+                active_habits = evidence.get("active_habits")
+                consistency_rate = evidence.get("consistency_rate")
+
+                if (
+                    active_habits is not None
+                    and consistency_rate is not None
+                ):
+                    message = (
+                        f"You have {active_habits} active habits "
+                        f"with a consistency rate of {consistency_rate}%. "
+                        "Focus on maintaining one important habit "
+                        "consistently before adding new habits."
+                    )
+                else:
+                    message = (
+                        "Focus on maintaining your most important habit "
+                        "consistently before adding new habits."
+                    )
+
                 recommendations.append(
                     {
                         "type": "habit_management",
                         "title": "Rebuild habit consistency",
-                        "message": (
-                            "Focus on maintaining your most important habit "
-                            "consistently before adding new habits."
-                        ),
+                        "message": message,
                         "reason": signal.get("message"),
                         "source_signal": signal_type,
                         "priority": signal.get("priority_score", 0),
                     }
                 )
+
 
             elif signal_type == "task_completion":
                 recommendations.append(
