@@ -228,3 +228,114 @@ def test_context_analysis_ignores_goal_progress_without_active_goals():
 
     assert result["signal_count"] == 0
     assert result["signals"] == []
+
+
+def test_context_analysis_detects_low_habit_consistency():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 2,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 0,
+                "completion_rate": 0,
+            },
+            "habits": {
+                "consistency_rate": 40,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 1
+
+    signal = result["signals"][0]
+
+    assert signal["type"] == "habit_consistency"
+    assert signal["severity"] == "medium"
+    assert signal["evidence"]["active_habits"] == 2
+    assert signal["evidence"]["consistency_rate"] == 40
+    assert signal["confidence"] == 1.0
+
+def test_context_analysis_ignores_habit_consistency_at_50_percent():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 2,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 0,
+                "completion_rate": 0,
+            },
+            "habits": {
+                "consistency_rate": 50,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 0
+    assert result["signals"] == []
+
+
+def test_context_analysis_ignores_habit_consistency_without_active_habits():
+    service = ContextAnalysisService()
+
+    context = {
+        "tasks": {
+            "pending": 0,
+            "due_today": 0,
+        },
+        "goals": {
+            "active": 0,
+            "average_progress": 0,
+        },
+        "habits": {
+            "active": 0,
+        },
+        "projects": {
+            "active": 0,
+        },
+        "analytics": {
+            "tasks": {
+                "created": 0,
+                "completion_rate": 0,
+            },
+            "habits": {
+                "consistency_rate": 20,
+            },
+        },
+    }
+
+    result = service.analyze(context)
+
+    assert result["signal_count"] == 0
+    assert result["signals"] == []
