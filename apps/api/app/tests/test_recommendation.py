@@ -168,3 +168,28 @@ def test_habit_recommendation_uses_consistency_evidence():
     assert len(result) == 1
     assert "3" in result[0]["message"]
     assert "40" in result[0]["message"]
+
+    
+def test_task_completion_recommendation_uses_completion_evidence():
+    service = RecommendationService()
+
+    signals = [
+        {
+            "type": "task_completion",
+            "severity": "medium",
+            "message": "Your task completion rate is low.",
+            "source": "tasks",
+            "evidence": {
+                "created_tasks": 10,
+                "completion_rate": 40,
+            },
+            "confidence": 1.0,
+            "priority_score": 2.0,
+        }
+    ]
+
+    result = service.generate(signals)
+
+    assert len(result) == 1
+    assert "10" in result[0]["message"]
+    assert "40" in result[0]["message"]

@@ -138,22 +138,37 @@ class RecommendationService:
                     }
                 )
 
-
             elif signal_type == "task_completion":
+                evidence = signal.get("evidence", {})
+                created_tasks = evidence.get("created_tasks")
+                completion_rate = evidence.get("completion_rate")
+
+                if (
+                    created_tasks is not None
+                    and completion_rate is not None
+                ):
+                    message = (
+                        f"You created {created_tasks} tasks, and your "
+                        f"completion rate is {completion_rate}%. "
+                        "Review unfinished tasks and identify why they "
+                        "are not being completed."
+                    )
+                else:
+                    message = (
+                        "Review unfinished tasks and identify why they "
+                        "are not being completed."
+                    )
+
                 recommendations.append(
                     {
                         "type": "task_management",
                         "title": "Improve task completion",
-                        "message": (
-                            "Review unfinished tasks and identify why they "
-                            "are not being completed."
-                        ),
+                        "message": message,
                         "reason": signal.get("message"),
                         "source_signal": signal_type,
                         "priority": signal.get("priority_score", 0),
                     }
                 )
-
         return recommendations
 
     def get_user_recommendations(
