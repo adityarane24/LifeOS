@@ -60,14 +60,26 @@ class RecommendationService:
                 )
 
             elif signal_type == "due_today":
+                evidence = signal.get("evidence", {})
+                tasks_due_today = evidence.get("tasks_due_today")
+
+                if tasks_due_today is not None:
+                    message = (
+                        f"You have {tasks_due_today} tasks due today. "
+                        "Review them and complete or reschedule them "
+                        "before their deadlines."
+                    )
+                else:
+                    message = (
+                        "Review the tasks due today and complete or "
+                        "reschedule them before their deadlines."
+                    )
+
                 recommendations.append(
                     {
                         "type": "task_management",
                         "title": "Focus on today's deadlines",
-                        "message": (
-                            "Review the tasks due today and complete or "
-                            "reschedule them before their deadlines."
-                        ),
+                        "message": message,
                         "reason": signal.get("message"),
                         "source_signal": signal_type,
                         "priority": signal.get("priority_score", 0),
